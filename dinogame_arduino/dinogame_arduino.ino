@@ -94,7 +94,7 @@ void loop() {
   display.fillRect(obsX, obsY + 5, 10, 10, SSD1306_WHITE); // obstacle
 
   // Score
-  display.setCursor(90, 0);
+  display.setCursor(50, 0);
   display.print("Score:");
   display.print(score);
 
@@ -106,7 +106,7 @@ void gameOver() {
   display.clearDisplay();
   display.setCursor(20, 20);
   display.println("GAME OVER!");
-  display.setCursor(20, 40);
+  display.setCursor(20, 30);
   display.print("Score: ");
   display.print(score);
   display.display();
@@ -118,3 +118,4 @@ void gameOver() {
   obsSpeed = 5;
   gameSpeed = 18;
 }
+
