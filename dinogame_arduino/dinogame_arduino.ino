@@ -1,121 +1,90 @@
-#include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <SPI.h>
 
+// OLED settings
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
-#define OLED_RESET -1
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-#define BUTTON_PIN D3
+#define OLED_MOSI   D7  // GPIO13
+#define OLED_CLK    D5  // GPIO14
+#define OLED_DC     D3  // GPIO0
+#define OLED_CS     D8  // GPIO15
+#define OLED_RESET  D4  // GPIO2
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT,
+  &SPI, OLED_DC, OLED_RESET, OLED_CS);
 
 // Dino settings
-int dinoX = 10;
-int dinoY = 45;      // ground position
-int jumpY = dinoY;
+int dinoY = 48;        // Ground position
+int jumpHeight = 20;   // Jump height
 bool isJumping = false;
-int jumpVelocity = 0;
+int jumpProgress = 0;
 
-// Obstacle
-int obsX = SCREEN_WIDTH;
-int obsY = 45;
-int obsSpeed = 5;   // 🔥 faster from the start
+// Obstacle settings
+int obstacleX = SCREEN_WIDTH;
 
-// Score
-int score = 0;
-int gameSpeed = 18; // 🔥 smaller delay = faster updates
-
-void drawDino(int x, int y) {
-  // Simple dino pixel art
-  display.fillRect(x, y, 10, 10, SSD1306_WHITE);      // body
-  display.fillRect(x + 8, y - 4, 4, 4, SSD1306_WHITE); // head
-  display.fillRect(x + 2, y + 10, 2, 3, SSD1306_WHITE); // leg 1
-  display.fillRect(x + 6, y + 10, 2, 3, SSD1306_WHITE); // leg 2
-  display.drawPixel(x + 9, y - 5, SSD1306_WHITE);       // eye
-}
+// Button pin
+#define BUTTON_PIN D1  // GPIO5
 
 void setup() {
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-
-//dispaly the startup screen
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    for (;;);
-  }
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Button with internal pull-up
+  display.begin(SSD1306_SWITCHCAPVCC);
   display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(10, 20);
-  display.println("DINO GAME");
   display.display();
-  delay(1500);
 }
 
 void loop() {
-  // Check button
+  // Read button (LOW when pressed)
   if (digitalRead(BUTTON_PIN) == LOW && !isJumping) {
     isJumping = true;
-    jumpVelocity = -10; // jump force
+    jumpProgress = 0;
   }
 
-  // Update jump physics
+  // Handle jump animation
   if (isJumping) {
-    jumpY += jumpVelocity;
-    jumpVelocity += 1; // gravity
-
-    if (jumpY >= dinoY) {
-      jumpY = dinoY;
+    if (jumpProgress < 10) dinoY -= 2;       // going up
+    else if (jumpProgress < 20) dinoY += 2;  // going down
+    jumpProgress++;
+    if (jumpProgress >= 20) {
       isJumping = false;
+      dinoY = 48; // back to ground
     }
   }
 
   // Move obstacle
-  obsX -= obsSpeed;
-  if (obsX < -10) {
-    obsX = SCREEN_WIDTH;
-    score++;
-
-    // Speed up game every 5 points
-    if (score % 5 == 0 && gameSpeed > 10) {
-      obsSpeed++;
-      gameSpeed -= 1; // less reduction so it's smooth
-    }
-  }
+  obstacleX -= 3;
+  if (obstacleX < -10) obstacleX = SCREEN_WIDTH;
 
   // Collision detection
-  if (obsX < dinoX + 12 && obsX > dinoX - 8) {
-    if (jumpY + 10 >= obsY) {
-      gameOver();
-    }
+  if (obstacleX < 20 && obstacleX > 5 && dinoY > 40) {
+    gameOver();
   }
 
-  // Draw
+  // Draw everything
   display.clearDisplay();
-  drawDino(dinoX, jumpY);
-  display.fillRect(obsX, obsY + 5, 10, 10, SSD1306_WHITE); // obstacle
 
-  // Score
-  display.setCursor(50, 0);
-  display.print("Score:");
-  display.print(score);
+  // Ground line
+  display.drawLine(0, 63, SCREEN_WIDTH, 63, SSD1306_WHITE);
+
+  // Dino (10x10 square)
+  display.fillRect(5, dinoY, 10, 10, SSD1306_WHITE);
+
+  // Obstacle (cactus block)
+  display.fillRect(obstacleX, 53, 8, 10, SSD1306_WHITE);
 
   display.display();
-  delay(gameSpeed);
+
+  delay(50);
 }
 
 void gameOver() {
   display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(SSD1306_WHITE);
   display.setCursor(20, 20);
-  display.println("GAME OVER!");
-  display.setCursor(20, 30);
-  display.print("Score: ");
-  display.print(score);
+  display.println("GAME OVER");
   display.display();
   delay(2000);
-
-  // Reset game (still fast from start)
-  score = 0;
-  obsX = SCREEN_WIDTH;
-  obsSpeed = 5;
-  gameSpeed = 18;
+  obstacleX = SCREEN_WIDTH; // reset obstacle
 }
-
